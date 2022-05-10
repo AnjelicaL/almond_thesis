@@ -7,11 +7,11 @@ getwd() #verifier l'emplacement du projet, ici C:/Users/ajleconte/Desktop/almond
 setwd("D:/almond") #permet de modifier l'emplacement de travail
 source("packages_use.R") #appel le script contenant tous les packages
 
-test_control <- read.csv2("D:/these/INRAE/EAG/test_reponse_controle.csv", sep=";") #ouvre l'emplacement de travail pour selection manuelle fichier
+test_control <- read.csv2("D:/these/INRAE/EAG/test_reponse_controle.csv", sep=";") 
 attach(test_control) #attention avec attach, bien quand on a juste 1 dataframe pour eviter le $
 
 test_control$File_name <- as.character(test_control$File_name)
-test_control$dose_µg <- as.character(test_control$dose_µg)
+test_control$dose_ug <- as.character(test_control$dose_ug)
 test_control$time <- abs((R1S1time - R1S2time)/1000) # conversion temps de reponse en secondes
 
 ##################################
@@ -30,7 +30,7 @@ test_control$data_norm <-log10(max(R1S1peak+1) - R1S1peak)
 shapiro.test(test_control$data_norm) # 0.2904
 ggqqplot(test_control$data_norm)
 
-# Test homognéité variance
+# Test homogneite variance
 fligner.test(data_norm ~ VOC, data = test_control) # heterodascticite pour insecte et dose 0.03 et 0.02 mais pas VOC 0.1771
 
 ##################################
@@ -38,12 +38,12 @@ fligner.test(data_norm ~ VOC, data = test_control) # heterodascticite pour insec
 ##################################
 
 #Modele avec effet aleatoire
-reg_control <-lmer(data_norm ~ dose_µg+VOC+dose_µg:VOC+(1|Insecte), data = test_control) # car echantillonnage desequilibre
+reg_control <-lmer(data_norm ~ dose_ug+VOC+dose_ug:VOC+(1|Insecte), data = test_control) # car echantillonnage desequilibre
 model <- Anova(reg_control)
 model2 <- anova(reg_control, type = "III")
 
 # Test de l'interet effet aleatoire : comparaison avec et sans
-ranova(reg_control) # 0.007 effet à garder
+ranova(reg_control) # 0.007 effet a garder
 
 # Calcul ICC (favoriser anova ou modele mixte)
 
@@ -64,7 +64,7 @@ anova(reg_control0, reg_control)
 summary(reg_control0)
 
 #TukeyHSD(reg_control, conf.level = 0.95)
-test_control$grp <- interaction(test_control$dose_µg, test_control$VOC, sep="_" ) # Creer une colonne avec interaction dose et cov
+test_control$grp <- interaction(test_control$dose_ug, test_control$VOC, sep="_" ) # Creer une colonne avec interaction dose et cov
 #HSD.test(reg_control, "grp")
 res <- test_control %>% tukey_hsd(data_norm~grp)
 res
@@ -85,8 +85,8 @@ bartlett.test(residuals(reg_control)~test_control$grp) #homogeneite des variance
 ##################################
 
 # modele test lm au lieu de lmer
-reg_lmfull <- lm(data_norm ~ dose_µg+VOC+dose_µg:VOC, data = test_control)
-reg_lm <- lm(data_norm ~ dose_µg+VOC, data = test_control)
+reg_lmfull <- lm(data_norm ~ dose_ug+VOC+dose_ug:VOC, data = test_control)
+reg_lm <- lm(data_norm ~ dose_ug+VOC, data = test_control)
 anova(reg_lm)
 summary(reg_lm)
 
@@ -113,24 +113,24 @@ shapiro.test(mean_control$Moyenne) #0.8292, normalite ok
 
 
 #pvalue a ajouter sur le graph :
-#t.test(test_control$data_norm, test_control$dose_µg, paired = T)
-#pairwise.t.test(test_control$data_norm, test_control$dose_µg, paired=TRUE) 
+#t.test(test_control$data_norm, test_control$dose_ug, paired = T)
+#pairwise.t.test(test_control$data_norm, test_control$dose_ug, paired=TRUE) 
 
 
 res_comp1 <-test_control %>%
   pairwise_t_test(
-    data_norm ~ dose_µg, 
+    data_norm ~ dose_ug, 
     p.adjust.method = "bonferroni"
   )
 
 # Methode 1: Representation graphique avec lettre, pas de comparaison entre cov car lmer nous montre une interaction ns
 library("RColorBrewer") #library pour couleur
-plot_mean1 <- ggplot(data = mean_control, aes(x = Dose, y = Moyenne, fill = COV)) + 
+#plot_mean1 <- ggplot(data = mean_control, aes(x = Dose, y = Moyenne, fill = COV)) + 
   geom_bar(stat = "identity", position = position_dodge()) + scale_fill_brewer(palette = "Set2") +
   geom_errorbar(aes(ymin = Moyenne - Erreur_std, ymax = Moyenne + Erreur_std),width=.1,  position=position_dodge(0.9)) +
-  theme_classic() + scale_x_discrete(name = "Dose (µg)") + scale_y_continuous(name = "Amplitude average (mV)") + coord_cartesian(ylim = c(0, 1.8))
+  theme_classic() + scale_x_discrete(name = "Dose (ug)") + scale_y_continuous(name = "Amplitude average (mV)") + coord_cartesian(ylim = c(0, 1.8))
 
-plot_final <- plot_mean1 +
+#plot_final <- plot_mean1 +
   annotate("text", x=0.88, y=1.74, label = "a", fontface="bold", size = 4.5)+
   annotate("text", x=1.75, y=1.74, label = "a", fontface="bold", size = 4.5)+
   annotate("text", x=2.15, y=1.74, label = "a", fontface="bold", size = 4.5)+
@@ -141,12 +141,12 @@ plot_final <- plot_mean1 +
 
 
 
-# Methode 2 : manuelle (peu recommande)
+# Methode 2 : manuelle avec *
 
 plot_mean2 <- ggplot(data = mean_control, aes(x = Dose, y = Moyenne, fill = COV)) + 
   geom_bar(stat = "identity", position = position_dodge()) + scale_fill_brewer(palette = "Set2") +
   geom_errorbar(aes(ymin = Moyenne - Erreur_std, ymax = Moyenne + Erreur_std),width=.1,  position=position_dodge(0.9)) +
-  theme_classic() + scale_x_discrete(name = "Dose (µg)") + scale_y_continuous(name = "Amplitude average (mV)") + coord_cartesian(ylim = c(0, 2))
+  theme_classic() + scale_x_discrete(name = "Dose (ug)") + scale_y_continuous(name = "Amplitude average (mV)") + coord_cartesian(ylim = c(0, 2))
 
 
 plot_f <- plot_mean2 +
