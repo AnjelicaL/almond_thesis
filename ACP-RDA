@@ -1,0 +1,249 @@
+##########################
+##       Library        ##
+##########################
+
+wd <- "D:/these/CEFE/mesures"
+setwd(wd)
+#install.packages('FactoMineR')
+#install.packages('factoextra')
+library(FactoMineR)
+library(factoextra)
+library(explor)
+library(lme4)
+library(moments)
+library(MASS)
+library("ggpubr")
+#install.packages("RVAideMemoire")
+library(RVAideMemoire)
+library(Hotelling) # Function needed: clr
+library(vegan) # Function needed: rda
+library(pls)
+source("D:/these/almond_thesis/packages_use.R") #appel le script contenant tous les packages
+
+##########################
+##    Total emissions   ##
+##########################
+
+algeco_data <- read.csv2("emissions_finales_modifie.csv", sep=";")
+
+#algeco_data <- algeco_data %>% mutate(Stade_pheno=str_to_title(Stade_pheno)) #uniformise les majuscules
+algeco_data2 <- algeco_data
+algeco_data2[is.na(algeco_data2)] <- 0
+#temp <- mapply(round, algeco_data2$T_chamber, 0)
+#temp <- as.data.frame(temp)
+#algeco_data2 <- cbind(algeco_data, temp)
+algeco_data2$T_chamber <- as.factor(algeco_data2$T_chamber)
+algeco_data2$PAR <- as.factor(algeco_data2$PAR)
+algeco_data2$Variety <- as.factor(algeco_data2$Variety)
+algeco_data2$Type_manip <- as.factor(algeco_data2$Type_manip)
+#write.csv2(algeco_data2, file = "algeco_full_new2.csv")
+
+algeco_data2 <- algeco_data2[-c(276:304),] #pour une raison inconnue il rajoute des lignes vides
+
+##########################
+##         ACP          ##
+##########################
+
+res <- PCA(algeco_data2[,21:65], graph = F, ncp = 6)
+res
+
+res$eig # poids de chaque composante
+plot.PCA(res, choix="var", axes = c(1,2))
+plot.PCA(res, choix="var", axes = c(3,4))
+plot.PCA(res, choix="var", axes = c(5,6))
+
+
+# evalue la représentation
+res$ind$cos2
+res$var$cos2
+
+# evalue le poids d'un composé
+res$ind$cos2
+res$var$cos2
+
+# coordonnées
+res$ind$coord
+res$var$coord
+
+# Graphiques factoextra
+
+explor::explor(res)
+
+# Graphique avec variable qualitative
+fviz_pca_ind(res,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = algeco_data2$Type_manip, # colorer by groups
+             addEllipses = TRUE, # Ellipses de concentration
+             legend.title = "Type manip", axes = c(1,2)
+)
+
+fviz_pca_ind(res,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = algeco_data2$PAR, # colorer by groups
+             addEllipses = TRUE, # Ellipses de concentration
+             legend.title = "PAR", axes = c(1,2)
+)
+
+
+pca_pheno1 <-fviz_pca_ind(res,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = algeco_data2$Stade.pheno, # colorer by groups
+             addEllipses = TRUE, # Ellipses de concentration
+             legend.title = "Phénologie", axes = c(1,2)
+)
+
+pca_pheno2 <- fviz_pca_ind(res,
+                            geom.ind = "point", # Montre les points seulement (mais pas le "text")
+                            col.ind = algeco_data2$Stade.pheno, # colorer by groups
+                            addEllipses = TRUE, # Ellipses de concentration
+                            legend.title = "Phénologie", axes = c(3,4)
+)
+
+fviz_pca_ind(res,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = algeco_data2$Type_organ, # colorer by groups
+             addEllipses = TRUE, # Ellipses de concentration
+             legend.title = "Organe", axes = c(1,2)
+)
+
+
+# ACP classique avec scale
+res <- PCA(df_fullscale[,21:65], graph = F, ncp = 6)
+explor::explor(res)
+fviz_pca_ind(res,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = df_fullscale$Stade_simple, # colorer by groups
+             addEllipses = TRUE, # Ellipses de concentration
+             legend.title = "PAR", axes = c(1,2))
+fviz_pca_ind(res,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = df_fullscale$Stade_simple, # colorer by groups
+             addEllipses = TRUE, # Ellipses de concentration
+             legend.title = "PAR", axes = c(3,4))
+
+
+# ACP methode Herve sans scale
+tab_class <- algeco_data2[,21:65]
+ACP<-rda(tab_class)
+MVA.synt(ACP)
+stressplot(ACP, k = 4)
+
+# ACP methode Herve avec scale
+ACPscale<-rda(tab_class, scale = T)
+MVA.synt(ACPscale)
+stressplot(ACPscale,k=4)
+
+# ACP methode Herve avec scale et racine quadratique
+tab_class2 <- tab_class
+for (j in 1:45){
+  for (i in 1:nrow(tab_class2)){
+    tab_class2[i,j] <- tab_class2[i,j]^(1/4)
+  }
+}
+
+ACPtransfo<-rda(tab_class2, scale = T)
+MVA.synt(ACPtransfo)
+stressplot(ACPtransfo, k = 4)
+
+# Graph individus
+MVA.plot(ACP)
+MVA.plot(ACPscale)
+MVA.plot(ACPtransfo, fac=algeco_data2$Stade_simple)
+MVA.plot(ACPtransfo, fac=algeco_data2$Type_organ)
+MVA.plot(ACPtransfo,"corr", xax=3, yax=4)
+
+
+## Classification
+
+#install.packages("clustertend")
+library(clustertend)
+tab_class <- algeco_data2[,21:65]
+tab_class <- as.matrix(tab_class)
+hopkins(tab_class,n=15)
+
+test1 <- dist(tab_class, "manhattan")
+test2 <- dist(tab_class, "canberra")
+test3 <- dist(tab_class, "euclidean")
+
+dissplot(test3)
+
+
+
+mat.dist<-as.dist(tab_class)
+##########################################################################################################################################################################################################################
+
+##########################
+##    Transformation    ##
+##########################
+# enlever les valeurs neg
+for (j in 21:65){
+  for (i in 1:nrow(algeco_data2)){
+    if(algeco_data2[i,j]<0) algeco_data2[i,j] <- 0
+    }
+}
+
+
+# four root square
+df_transform <- algeco_data2
+for (j in 21:65){
+  for (i in 1:nrow(df_transform)){
+    df_transform[i,j] <- df_transform[i,j]^(1/4)
+  }
+}
+
+voc_scale <-scale(df_transform[21:65], center = F, scale = T) # pas data frame pour faire les analyses
+df_scale <- as.data.frame(scale(df_transform[21:65], center = F, scale = T))
+df <- as.data.frame(df_transform[1:20])
+df_fullscale <- bind_cols(df, df_scale)
+
+hist(algeco_data2$Germacrene.D, col ="steelblue", main = "Original")
+hist(df_transform$Germacrene.D, col ="coral2", main = "Transformed")
+hist(df_fullscale$Germacrene.D, col ="coral2", main = "Transformed scale")
+
+shapiro.test(algeco_data2$Germacrene.D) # sans transfo
+
+shapiro.test(df_transform$Germacrene.D) # avec four root square
+
+shapiro.test(df_fullscale$Germacrene.D) #avec le scaling
+
+
+##########################
+##         RDA          ##
+##########################
+facteurs <- (subset(algeco_data2, select = c(Stade.pheno,Type_organ,T_chamber,PAR,Variety)))
+anova(betadisper(dist(df_fullscale[,21:45]),algeco_data2$T_chamber))
+
+
+## RDA sur totalite du jeu de donnees
+# Modèle 1 complet
+RDA <- rda(df_scale~T_chamber*PAR*Stade.pheno*Type_organ*Variety, data = df_fullscale)
+synt <- MVA.synt(RDA)
+anova(RDA) # effets significatifs d'une ou plusieurs variables
+
+res_rda <- MVA.anova(RDA) # détails des effets significatifs
+
+# Pairwise 
+
+pairwise.factorfit(RDA,df_fullscale$Variety) #interactions
+pairwise.factorfit(RDA,df_fullscale$T_chamber) #interactions
+pairwise.factorfit(RDA,df_fullscale$Stade.pheno)
+pairwise.factorfit(RDA,df_fullscale$Type_organ)
+
+# Graph des individus
+MVA.plot(RDA, fac = df_fullscale$T_chamber, pch=c(1:6), col=1:6)
+MVA.plot(RDA, fac = df_fullscale$T_chamber, pch=c(1:6), xax=3, yax=4,col=1:6)
+
+MVA.plot(RDA, fac = df_fullscale$Type_organ, pch=c(1:6), col=1:6)
+MVA.plot(RDA, fac = df_fullscale$Type_organ, pch=c(1:6), xax=3, yax=4)
+
+MVA.plot(RDA, fac = df_fullscale$Variety, pch=c(1:6),col=1:6)
+MVA.plot(RDA, fac = df_fullscale$Variety, pch=c(1:6), xax=3, yax=4)
+
+MVA.plot(RDA, fac = df_fullscale$Stade.pheno, pch=c(1:7),col=1:7)
+MVA.plot(RDA, fac = df_fullscale$Stade.pheno, pch=c(1:7), xax=3, yax=4)
+
+# Graph des corrélations 
+MVA.plot(RDA,"corr")
+MVA.plot(RDA,"corr", xax= 3 , yax = 4)
+
+MVA.plot(RDA,"corr", space = 2)
